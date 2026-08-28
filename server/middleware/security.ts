@@ -7,15 +7,15 @@ import { logger } from './logger';
 
 // 1. Helmet Security Headers (Configured for Cloud Run Container & AI Studio iframe preview)
 export const helmetMiddleware = helmet({
-  contentSecurityPolicy: false, // Allow Vite dev scripts, styles, and iframe embedding in preview
-  frameguard: false, // Allow AI Studio iframe preview container
+  contentSecurityPolicy: process.env.NODE_ENV === "production" ? undefined : false,
+  frameguard: process.env.NODE_ENV === "production" ? { action: "deny" } : false,
   crossOriginEmbedderPolicy: false,
-  hsts: false
+  hsts: process.env.NODE_ENV === "production" ? { maxAge: 31536000, includeSubDomains: true, preload: true } : false,
 });
 
 // 2. CORS (Configured to allow web client and preview containers)
 export const corsMiddleware = cors({
-  origin: true,
+  origin: (origin, cb) => { const allowed=[process.env.FRONTEND_URL, "http://localhost:5173", "http://localhost:3000"].filter(Boolean); if(!origin) return cb(null,true); if(process.env.NODE_ENV!=="production") return cb(null,true); if(allowed.includes(origin)) return cb(null,true); return cb(new Error("Not allowed by CORS")); },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: [
