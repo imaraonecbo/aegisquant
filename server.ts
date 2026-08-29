@@ -8,7 +8,7 @@ import { config } from './server/config';
 import { logger } from './server/middleware/logger';
 import {
   helmetMiddleware,
-  corsMiddleware,
+  cors(),
   generalRateLimiter,
   inputSanitizer
 } from './server/middleware/security';
@@ -35,7 +35,7 @@ async function startServer() {
 
   // 2. Global Security Headers & CORS
   app.use(helmetMiddleware);
-  app.use(corsMiddleware);
+  app.use(cors());
 
   // 3. Body Parsing & Cookie Parsing
   app.use(express.json({ limit: '1mb' }));
