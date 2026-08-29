@@ -69,7 +69,8 @@ router.post('/autonomous-engine/trigger', (req: Request, res: Response) => {
 // POST /api/treasury/withdraw-net-profit (Zero-Friction Net Profit Withdrawal to Owner Account)
 const withdrawNetProfitSchema = z.object({
   amountUsd: z.number().positive('Withdrawal amount must be greater than zero'),
-  destinationAddress: z.string().min(10).default('0x3c2a1b0e9f8d7c6b5a4e3d2c1b0a9f8e7d6c5b4a'),
+  destinationAddress: z.string().min(10).optional(),
+  destination: z.string().min(10).optional(),
   memo: z.string().max(255).optional()
 });
 
@@ -79,13 +80,22 @@ router.post('/withdraw-net-profit', financialTxRateLimiter, (req: Request, res: 
     return res.status(400).json({ error: 'VALIDATION_ERROR', details: parse.error.flatten().fieldErrors });
   }
 
-  const { amountUsd, destinationAddress, memo } = parse.data;
+  const { amountUsd, memo } = parse.data;
+  const targetAddress = parse.data.destinationAddress || parse.data.destination;
+
+  if (!targetAddress) {
+    return res.status(400).json({
+      error: 'VALIDATION_ERROR',
+      details: { destinationAddress: ['Destination address is required'] }
+    });
+  }
+
   const user = req.user || { id: 'usr_admin_01', email: 'owner@aegisquant.institutional', role: 'ADMIN' };
 
   try {
     const result = db.withdrawNetProfit({
       amountUsd,
-      destinationAddress,
+      destinationAddress: targetAddress,
       userId: user.id,
       userEmail: user.email,
       userRole: user.role,
@@ -94,7 +104,7 @@ router.post('/withdraw-net-profit', financialTxRateLimiter, (req: Request, res: 
 
     res.json({
       status: 'WITHDRAWAL_EXECUTED',
-      message: `Zero-friction withdrawal of $${amountUsd.toLocaleString(undefined, { minimumFractionDigits: 2 })} successfully routed to primary account ${destinationAddress}.`,
+      message: Zero-friction withdrawal of $${amountUsd.toLocaleString(undefined, { minimumFractionDigits: 2 })} successfully routed to primary account ${targetAddress}.,
       result,
       updated_treasury: db.getTreasurySummary()
     });
@@ -134,7 +144,7 @@ router.post('/calculate-allocation', (req: Request, res: Response) => {
   if (!totalPct.equals(100)) {
     return res.status(400).json({
       error: 'INVALID_SUM',
-      message: `Reserve allocation percentages must sum to exactly 100.0%. Current sum: ${totalPct.toString()}%`
+      message: Reserve allocation percentages must sum to exactly 100.0%. Current sum: ${totalPct.toString()}%
     });
   }
 
@@ -191,7 +201,7 @@ router.post('/calculate-allocation', (req: Request, res: Response) => {
         target_contract: 'StrategyRegistry.sol (CompoundingShare)'
       }
     },
-    audit_hash: `0x${Buffer.from(`ALLOC_50_50_${realizedProfitUsd}_${Date.now()}`).toString('hex').slice(0, 32)}`,
+    audit_hash: 0x${Buffer.from(`ALLOC_50_50_${realizedProfitUsd}_${Date.now()}).toString('hex').slice(0, 32)}`,
     timestamp: new Date().toISOString()
   });
 });
@@ -226,7 +236,7 @@ router.post(
     }
 
     const user = req.user!;
-    const idempotencyKey = (req.headers['idempotency-key'] as string) || `IDEM_PROFIT_${Date.now()}`;
+    const idempotencyKey = (req.headers['idempotency-key'] as string) || IDEM_PROFIT_${Date.now()};
     const profitDec = new Decimal(realizedProfitUsd);
 
     const buckets = [
@@ -247,10 +257,10 @@ router.post(
           token_symbol: 'USDC',
           token_amount: amt.toFixed(6),
           usd_value: amt.toFixed(6),
-          memo: memo || `Automated Profit Routing: ${b.pct}% to ${b.desc}`,
-          auth_policy: `ProfitDistributor.sol / RBAC Authorized by ${user.role} (${user.email})`,
+          memo: memo || Automated Profit Routing: ${b.pct}% to ${b.desc},
+          auth_policy: ProfitDistributor.sol / RBAC Authorized by ${user.role} (${user.email}),
           performed_by_user_id: user.id,
-          idempotency_key: `${idempotencyKey}_${b.type}`
+          idempotency_key: ${idempotencyKey}_${b.type}
         });
         generatedTxs.push(entry);
       }
@@ -281,7 +291,7 @@ router.post(
 
     res.json({
       status: 'PROFIT_ROUTED_SUCCESS',
-      message: `Successfully distributed $${realizedProfitUsd.toLocaleString()} across 4 reserve buckets.`,
+      message: Successfully distributed $${realizedProfitUsd.toLocaleString()} across 4 reserve buckets.,
       transactions: generatedTxs,
       updated_treasury: updatedSummary
     });
@@ -303,7 +313,7 @@ router.post('/deposit', financialTxRateLimiter, requireRoles(['ADMIN', 'OPERATOR
 
   const { bucket, amountUsd, memo } = parse.data;
   const user = req.user!;
-  const idempotencyKey = (req.headers['idempotency-key'] as string) || `IDEM_DEP_${Date.now()}`;
+  const idempotencyKey = (req.headers['idempotency-key'] as string) || IDEM_DEP_${Date.now()};
 
   const entry = db.executeLedgerTransaction({
     bucket_from: 'EXTERNAL_DEPOSIT',
@@ -311,8 +321,8 @@ router.post('/deposit', financialTxRateLimiter, requireRoles(['ADMIN', 'OPERATOR
     token_symbol: 'USDC',
     token_amount: amountUsd,
     usd_value: amountUsd,
-    memo: memo || `External Capital Deposit into ${bucket}`,
-    auth_policy: `Authorized by ${user.role} (${user.email})`,
+    memo: memo || External Capital Deposit into ${bucket},
+    auth_policy: Authorized by ${user.role} (${user.email}),
     performed_by_user_id: user.id,
     idempotency_key: idempotencyKey
   });
@@ -323,7 +333,7 @@ router.post('/deposit', financialTxRateLimiter, requireRoles(['ADMIN', 'OPERATOR
     user_email: user.email,
     user_role: user.role,
     ip_address: req.ip || '127.0.0.1',
-    action: `DEPOSIT_TO_${bucket}`,
+    action: DEPOSIT_TO_${bucket},
     details_json: { amountUsd, bucket, txId: entry.id }
   });
 
@@ -343,7 +353,7 @@ router.get('/reconciliation', (req: Request, res: Response) => {
 // POST /api/treasury/reconciliation/run (Trigger on-demand reconciliation audit)
 router.post('/reconciliation/run', requireRoles(['ADMIN', 'AUDITOR', 'RISK_MANAGER']), (req: Request, res: Response) => {
   const user = req.user!;
-  const report = db.runReconciliationAudit(`MANUAL_AUDIT_BY_${user.role}_${user.email}`);
+  const report = db.runReconciliationAudit(MANUAL_AUDIT_BY_${user.role}_${user.email});
 
   db.recordAuditLogInternal({
     event_type: 'RECONCILIATION_AUDIT_RUN',
