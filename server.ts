@@ -8,7 +8,6 @@ import { config } from './server/config';
 import { logger } from './server/middleware/logger';
 import {
   helmetMiddleware,
-  cors(),
   generalRateLimiter,
   inputSanitizer
 } from './server/middleware/security';
